@@ -9,9 +9,14 @@ contract FlightSuretyData {
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
 
+    struct Airline {
+        bool isRegistered;
+        bool hasPayedFee;
+    }
     address private contractOwner;                                      // Account used to deploy contract
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
     mapping(address => bool) private authorizedContracts;
+    mapping(address => Airline) private airlines;
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -24,10 +29,12 @@ contract FlightSuretyData {
     */
     constructor
                                 (
+                                    address firstAirline
                                 ) 
                                 public 
     {
         contractOwner = msg.sender;
+        airlines[firstAirline].isRegistered = true;
     }
 
     /********************************************************************************************/
@@ -54,6 +61,14 @@ contract FlightSuretyData {
     modifier requireContractOwner()
     {
         require(msg.sender == contractOwner, "Caller is not contract owner");
+        _;
+    }
+
+    modifier requireAuthorizedAirline()
+    {
+        bool isRegistered = airlines[msg.sender].isRegistered;
+        bool hasPayedFee = airlines[msg.sender].hasPayedFee;
+        require(isRegistered && hasPayedFee, "Airline is not registered and has payed fee");
         _;
     }
 
@@ -120,11 +135,13 @@ contract FlightSuretyData {
     *
     */   
     function registerAirline
-                            (   
+                            (
+                                address airline   
                             )
                             external
-                            pure
+                            requireAuthorizedAirline
     {
+        airlines[airline].isRegistered = true;
     }
 
 
@@ -202,6 +219,8 @@ contract FlightSuretyData {
         fund();
     }
 
-
+    function isAirline(address airline) public view returns(bool) {
+        return airlines[airline].isRegistered;
+    }
 }
 
