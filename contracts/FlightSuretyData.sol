@@ -13,6 +13,7 @@ contract FlightSuretyData {
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
     struct Airline {
         bool isRegistered;
+        bool hasPayedFee;
     }
     mapping(address => Airline) private airlines;
 
@@ -27,10 +28,12 @@ contract FlightSuretyData {
     */
     constructor
                                 (
+                                    address firstAirline
                                 ) 
                                 public 
     {
         contractOwner = msg.sender;
+        airlines[firstAirline].isRegistered = true;
     }
 
     /********************************************************************************************/
@@ -57,6 +60,14 @@ contract FlightSuretyData {
     modifier requireContractOwner()
     {
         require(msg.sender == contractOwner, "Caller is not contract owner");
+        _;
+    }
+
+    modifier requireAuthorizedAirline()
+    {
+        bool isRegistered = airlines[msg.sender].isRegistered;
+        bool hasPayedFee = airlines[msg.sender].hasPayedFee;
+        require(isRegistered && hasPayedFee, "Airline is not registered or has not payed fee");
         _;
     }
 
