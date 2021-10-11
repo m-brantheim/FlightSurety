@@ -1,10 +1,11 @@
 
-var Test = require('../config/testConfig.js');
-var BigNumber = require('bignumber.js');
+const Test = require('../config/testConfig.js');
+const BigNumber = require('bignumber.js');
+const Web3 = require('web3');
 
 contract('Flight Surety Tests', async (accounts) => {
 
-  var config;
+  let config;
   before('setup contract', async () => {
     config = await Test.Config(accounts);
     // await config.flightSuretyData.authorizeCaller(config.flightSuretyApp.address);
@@ -17,7 +18,7 @@ contract('Flight Surety Tests', async (accounts) => {
   it(`(multiparty) has correct initial isOperational() value`, async function () {
 
     // Get operating status
-    let status = await config.flightSuretyData.isOperational.call();
+    const status = await config.flightSuretyData.isOperational.call();
     assert.equal(status, true, "Incorrect initial operating status value");
 
   });
@@ -77,31 +78,75 @@ contract('Flight Surety Tests', async (accounts) => {
     // do nothing
 
     // ACT
-    let result = await config.flightSuretyData.isAirline.call(config.firstAirline); 
+    const result = await config.flightSuretyData.isAirline.call(config.firstAirline); 
 
     // ASSERT
     assert.equal(result, true, "First airline is not registered when contract is deployed");
 
   });
 
-  // it('(airline) cannot register an Airline using registerAirline() if it is not funded', async () => {
+  it('(airline) cannot register an Airline using registerAirline() if it is not funded', async () => {
     
-  //   // ARRANGE
-  //   let newAirline = accounts[2];
+    // ARRANGE
+    const newAirline = accounts[2];
 
-  //   // ACT
-  //   try {
-  //       await config.flightSuretyApp.registerAirline(newAirline, {from: config.firstAirline});
-  //   }
-  //   catch(e) {
+    // ACT
+    try {
+        await config.flightSuretyApp.registerAirline(newAirline, {from: config.firstAirline});
+    }
+    catch(e) {
 
-  //   }
-  //   let result = await config.flightSuretyData.isAirline.call(newAirline); 
+    }
+    const result = await config.flightSuretyData.isAirline.call(newAirline); 
 
-  //   // ASSERT
-  //   assert.equal(result, false, "Airline should not be able to register another airline if it hasn't provided funding");
+    // ASSERT
+    assert.equal(result, false, "Airline should not be able to register another airline if it hasn't provided funding");
 
-  // });
- 
+  });
 
+  it('(airline) can register an Airline using registerAirline() if it is funded', async () => {
+    
+    // ARRANGE
+    const newAirline = accounts[2];
+
+    // ACT
+    try {
+        await config.flightSuretyApp.depositRegistrationFee({ from: config.firstAirline, value: Web3.utils.toWei("10", "ether") });
+        await config.flightSuretyApp.registerAirline(newAirline, {from: config.firstAirline});
+    }
+    catch(e) {
+
+    }
+    const result = await config.flightSuretyData.isAirline.call(newAirline); 
+
+    // ASSERT
+    assert.equal(result, true, "Airline should be able to register another airline if it has provided funding");
+
+  });
+
+  it('Up to 4 airlines can be registered without voting', async () => {
+    
+    // ARRANGE
+    const thirdAirline = accounts[3];
+    const fourthAirline = accounts[4];
+    const fifthAirline = accounts[5];
+
+    // ACT
+    try {
+        await config.flightSuretyApp.registerAirline(thirdAirline, {from: config.firstAirline});
+        await config.flightSuretyApp.registerAirline(fourthAirline, {from: config.firstAirline});
+        await config.flightSuretyApp.registerAirline(fifthAirline, {from: config.firstAirline});
+    }
+    catch(e) {
+
+    }
+    const thirdResult = await config.flightSuretyData.isAirline.call(thirdAirline); 
+    const fourthResult = await config.flightSuretyData.isAirline.call(fourthAirline); 
+    const fifthResult = await config.flightSuretyData.isAirline.call(fifthAirline); 
+
+    // ASSERT
+    assert.equal(thirdResult, true, "Airline should be able to register another airline if it has provided funding");
+    assert.equal(fourthResult, true, "Airline should be able to register another airline if it has provided funding");
+    assert.equal(fifthResult, false, "The fifth airline should not be registered directly without voting");
+  });
 });

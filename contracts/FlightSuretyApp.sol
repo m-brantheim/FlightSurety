@@ -66,6 +66,12 @@ contract FlightSuretyApp {
         _;
     }
 
+    modifier requireAuthorizedAirline()
+    {
+        require(flightSuretyData.isAuthorizedAirline(msg.sender), "Airline is not registered or has not payed fee");
+        _;
+    }
+
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
@@ -110,6 +116,8 @@ contract FlightSuretyApp {
                                 address _airline 
                             )
                             external
+                            requireIsOperational
+                            requireAuthorizedAirline
     {
         flightSuretyData.registerAirline(_airline);
     }
@@ -165,6 +173,13 @@ contract FlightSuretyApp {
 
         emit OracleRequest(index, airline, flight, timestamp);
     } 
+
+    function depositRegistrationFee()
+    public
+    payable
+    {
+        flightSuretyData.fund.value(msg.value)(msg.sender);
+    }
 
 
 // region ORACLE MANAGEMENT

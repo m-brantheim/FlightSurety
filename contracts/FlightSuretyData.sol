@@ -4,6 +4,7 @@ import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract FlightSuretyData {
     using SafeMath for uint256;
+    using SafeMath for uint8;
 
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
@@ -16,6 +17,7 @@ contract FlightSuretyData {
         bool hasPayedFee;
     }
     mapping(address => Airline) private airlines;
+    uint8 nrOfAirlines = 0;
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -33,7 +35,8 @@ contract FlightSuretyData {
                                 public 
     {
         contractOwner = msg.sender;
-        airlines[firstAirline].isRegistered = true;
+        //airlines[firstAirline].isRegistered = true;
+        registerAirline(firstAirline);
     }
 
     /********************************************************************************************/
@@ -104,6 +107,13 @@ contract FlightSuretyData {
         operational = mode;
     }
 
+    function isAuthorizedAirline(address _airline) public returns(bool)
+    {
+        bool isRegistered = airlines[_airline].isRegistered;
+        bool hasPayedFee = airlines[_airline].hasPayedFee;
+        return (isRegistered && hasPayedFee);
+    }
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
@@ -117,9 +127,12 @@ contract FlightSuretyData {
                             (   
                                 address _airline
                             )
-                            external
+                            public
     {
-        airlines[_airline].isRegistered = true;
+        if (nrOfAirlines < 4) {
+            airlines[_airline].isRegistered = true;
+            nrOfAirlines = uint8(nrOfAirlines.add(1));
+        }
     }
 
 
@@ -167,10 +180,13 @@ contract FlightSuretyData {
     */   
     function fund
                             (   
+                                address _airline
                             )
                             public
                             payable
     {
+        address(this).transfer(msg.value);
+        airlines[_airline].hasPayedFee = true;
     }
 
     function getFlightKey
@@ -199,7 +215,6 @@ contract FlightSuretyData {
                             external 
                             payable 
     {
-        fund();
     }
 
 
