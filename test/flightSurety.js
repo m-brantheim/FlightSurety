@@ -8,7 +8,7 @@ contract('Flight Surety Tests', async (accounts) => {
   let config;
   before('setup contract', async () => {
     config = await Test.Config(accounts);
-    // await config.flightSuretyData.authorizeCaller(config.flightSuretyApp.address);
+    await config.flightSuretyData.authorizeContract(config.flightSuretyApp.address, { from: config.owner });
   });
 
   /****************************************************************************************/
@@ -104,6 +104,24 @@ contract('Flight Surety Tests', async (accounts) => {
 
   });
 
+  it('Paying less than the registration fee is not allowed', async () => {
+    
+    // ARRANGE
+    const newAirline = accounts[2];
+
+    // ACT
+    try {
+        const result = await config.flightSuretyApp.depositRegistrationFee({ from: config.firstAirline, value: Web3.utils.toWei("5", "ether") });
+    }
+    catch(e) {
+    }
+    const result = await config.flightSuretyData.hasPayedAirlineFee.call(newAirline); 
+
+    // ASSERT
+    assert.equal(result, false, "Airline should not be set as having payed fee when it payed less than the registration fee");
+
+  });
+
   it('(airline) can register an Airline using registerAirline() if it is funded', async () => {
     
     // ARRANGE
@@ -148,5 +166,25 @@ contract('Flight Surety Tests', async (accounts) => {
     assert.equal(thirdResult, true, "Airline should be able to register another airline if it has provided funding");
     assert.equal(fourthResult, true, "Airline should be able to register another airline if it has provided funding");
     assert.equal(fifthResult, false, "The fifth airline should not be registered directly without voting");
+  });
+
+  it('Additional airline can be added with 50% of airline votes (multiparty consensus)', async () => {
+    
+    // ARRANGE
+    const secondAirline = accounts[2];
+    const fifthAirline = accounts[5];
+
+    // ACT
+    try {
+        await config.flightSuretyApp.depositRegistrationFee({ from: secondAirline, value: Web3.utils.toWei("10", "ether") });
+        await config.flightSuretyApp.registerAirline(fifthAirline, {from: secondAirline});
+    }
+    catch(e) {
+
+    }
+    const fifthResult = await config.flightSuretyData.isAirline.call(fifthAirline); 
+
+    // ASSERT
+    assert.equal(fifthResult, true, "The fifth airline can be added with multiparty consensus");
   });
 });

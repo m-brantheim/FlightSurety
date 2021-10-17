@@ -15,9 +15,13 @@ contract FlightSuretyData {
     struct Airline {
         bool isRegistered;
         bool hasPayedFee;
+        uint8 nrOfVotes;
     }
     mapping(address => Airline) private airlines;
+    mapping(address => bool) private authorizedContracts;
     uint8 nrOfAirlines = 0;
+    // Fee to be paid when registering oracle
+    uint256 public constant AIRLINE_REGISTRATION_FEE = 10 ether;
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -35,8 +39,10 @@ contract FlightSuretyData {
                                 public 
     {
         contractOwner = msg.sender;
-        //airlines[firstAirline].isRegistered = true;
-        registerAirline(firstAirline);
+        Airline storage airline = airlines[firstAirline];
+        airline.nrOfVotes = 1;
+        airline.isRegistered = true;
+        nrOfAirlines = 1;
     }
 
     /********************************************************************************************/
@@ -71,6 +77,18 @@ contract FlightSuretyData {
         bool isRegistered = airlines[msg.sender].isRegistered;
         bool hasPayedFee = airlines[msg.sender].hasPayedFee;
         require(isRegistered && hasPayedFee, "Airline is not registered or has not payed fee");
+        _;
+    }
+
+    modifier requireFullPayment()
+    {
+        require(msg.value >= AIRLINE_REGISTRATION_FEE, "Must pay full airline registration fee");
+        _;
+    }
+
+    modifier requireAuthorizedContract()
+    {
+        require(authorizedContracts[msg.sender] == true, "The calling address must be authorized");
         _;
     }
 
@@ -128,13 +146,17 @@ contract FlightSuretyData {
                                 address _airline
                             )
                             public
+                            requireIsOperational
+                            requireAuthorizedContract
     {
-        if (nrOfAirlines < 4) {
-            airlines[_airline].isRegistered = true;
+        Airline storage airline = airlines[_airline];
+        airline.nrOfVotes = uint8(airline.nrOfVotes.add(1));
+        bool hasMPC = airline.nrOfVotes >= (nrOfAirlines / 2);
+        if (nrOfAirlines < 4 || hasMPC) {
+            airline.isRegistered = true;
             nrOfAirlines = uint8(nrOfAirlines.add(1));
         }
     }
-
 
    /**
     * @dev Buy insurance for a flight
@@ -184,6 +206,8 @@ contract FlightSuretyData {
                             )
                             public
                             payable
+                            requireIsOperational
+                            requireFullPayment
     {
         address(this).transfer(msg.value);
         airlines[_airline].hasPayedFee = true;
@@ -205,6 +229,16 @@ contract FlightSuretyData {
     function isAirline(address _airline) view public returns(bool)
     {
         return airlines[_airline].isRegistered;
+    }
+
+    function hasPayedAirlineFee(address _airline) view public returns(bool)
+    {
+        return airlines[_airline].hasPayedFee;
+    }
+
+    function authorizeContract(address _contract) public requireContractOwner
+    {
+        authorizedContracts[_contract] = true;
     }
 
     /**
